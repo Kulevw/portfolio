@@ -13,7 +13,7 @@ export const makeRoutes = (env: IEnv): readonly RouteRecordRaw[] => {
 
   return [
     {
-      path: makePath('/'),
+      path: makePath(''),
       name: RoutesNames.Home,
       component: HomePage,
     },
