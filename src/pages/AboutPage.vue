@@ -4,5 +4,5 @@ import { RoutesNames } from '@/router'
 
 <template>
   <h1>About page</h1>
-  <RouterLink :to="{ name: RoutesNames.Home }">Back</RouterLink>
+  <!-- <RouterLink :to="{ name: RoutesNames.Home }">Back</RouterLink> -->
 </template>
