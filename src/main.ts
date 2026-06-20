@@ -5,6 +5,13 @@ import { env } from './env';
 import { makeRoutes } from '@/router';
 import App from './App.vue'
 
-export const createApp = ViteSSG(App, { routes: makeRoutes(), base: env.REPO_NAME }, ({ app }) => {
-  app.use(createPinia());
-})
+export const createApp = ViteSSG(
+  App,
+  {
+    routes: makeRoutes(),
+    base: env.REPO_NAME
+  },
+  ({ app }) => {
+    app.use(createPinia());
+  },
+)

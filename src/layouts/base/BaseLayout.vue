@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import BaseHeader from '@/components/BaseHeader.vue';
+import BaseHeader from '@/layouts/base/BaseHeader.vue';
 </script>
 
 <template>
   <div class="base-layout">
     <BaseHeader />
-    <main class="base-layout__content">
+    <main class="grid-container">
       <RouterView />
     </main>
   </div>
@@ -16,11 +16,5 @@ import BaseHeader from '@/components/BaseHeader.vue';
     display: flex;
     flex-direction: column;
     flex-grow: 1;
-
-    &__content {
-      display: flex;
-      flex-direction: column;
-      flex-grow: 1;
-    }
   }
 </style>

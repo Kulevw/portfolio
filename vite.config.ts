@@ -6,8 +6,6 @@ import vueDevTools from 'vite-plugin-vue-devtools'
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE');
 
-  console.log('ENV', env)
-
   return {
     base: env.VITE_REPO_NAME ? `/${env.VITE_REPO_NAME}/` : `/`,
     plugins: [vue(), vueDevTools()],

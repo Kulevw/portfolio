@@ -1,0 +1,10 @@
+@use 'tokens';
+
+html {
+  font-family: 'Montserrat', sans-serif;
+  font-weight: var(--font-weight-regular);
+  font-style: normal;
+  font-size: var(--base-font-size);
+  font-optical-sizing: auto;
+  line-height: 1;
+}

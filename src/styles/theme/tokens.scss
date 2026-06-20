@@ -1,0 +1,36 @@
+@use 'mixins';
+
+:root {
+  @include mixins.light-palitra;
+
+  [data-theme='reverse'] {
+    @include mixins.dark-palitra;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    @include mixins.dark-palitra;
+
+    [data-theme='reverse'] {
+      @include mixins.light-palitra;
+    }
+  }
+}
+
+[data-theme='light'] {
+  @include mixins.light-palitra;
+
+  [data-theme='reverse'] {
+    @include mixins.dark-palitra;
+  }
+}
+
+[data-theme='dark'] {
+  @include mixins.dark-palitra;
+
+  [data-theme='reverse'] {
+    @include mixins.light-palitra;
+  }
+}
+

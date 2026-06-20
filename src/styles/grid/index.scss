@@ -1,0 +1,21 @@
+@use 'tokens';
+@use 'mixins';
+@use 'variables';
+@forward 'mixins';
+
+.container {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  width: 100%;
+  padding: 0 16px;
+  margin: 0 auto;
+  max-width: var(--container-max-width, none);
+}
+
+.grid-container {
+  display: grid;
+  grid-template-areas: "left-side content right-side";
+  grid-template-columns: minmax(max-content, 1fr) min(var(--container-max-width, 100%), 100%) minmax(max-content, 1fr);
+  flex-grow: 1;
+}

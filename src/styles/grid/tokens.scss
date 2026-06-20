@@ -1,0 +1,22 @@
+@use 'mixins';
+@use 'variables';
+
+:root {
+  --border-size-md: 2px;
+
+  @include mixins.mobile-bp {
+    --container-max-width: #{variables.$container-max-width-sm};
+  }
+
+  @include mixins.tablet-bp {
+    --container-max-width: #{variables.$container-max-width-md};
+  }
+
+  @include mixins.descktop-bp {
+    --container-max-width: #{variables.$container-max-width-lg};
+  }
+
+  @include mixins.descktop-xl-bp {
+    --container-max-width: #{variables.$container-max-width-xl};
+  }
+}

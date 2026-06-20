@@ -1,9 +1,9 @@
 <script lang="ts" setup>
-import GridContainer from '@/components/Grid/GridContainer.vue';
+import BasePage from '@/layouts/base/BasePage.vue';
 </script>
 
 <template>
-  <GridContainer>
-    <h1>Home page</h1>
-  </GridContainer>
+  <BasePage>
+    <h1>Главная</h1>
+  </BasePage>
 </template>

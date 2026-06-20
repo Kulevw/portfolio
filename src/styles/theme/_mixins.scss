@@ -1,0 +1,19 @@
+@mixin light-palitra() {
+  --primary-color: var(--blue-500);
+
+  --text-color: var(--neutral-800);
+  --text-reverse-color: var(--light-900);
+
+  --bg-color: var(--light-800);
+  --bg-reverse-color: var(--neutral-800);
+}
+
+@mixin dark-palitra() {
+  --primary-color: var(--blue-500);
+
+  --text-color: var(--light-900);
+  --text-reverse-color: var(--neutral-800);
+
+  --bg-color: var(--neutral-800);
+  --bg-reverse-color: var(--light-800);
+}

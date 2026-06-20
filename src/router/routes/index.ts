@@ -4,7 +4,7 @@ import { RoutesNames } from '../contants'
 import HomePage from '@/pages/HomePage.vue'
 import AboutPage from '@/pages/AboutPage.vue'
 import MazeGenerationPage from '@/pages/MazeGenerationPage.vue'
-import BaseLayout from '@/layouts/BaseLayout.vue'
+import BaseLayout from '@/layouts/base/BaseLayout.vue'
 
 export const makeRoutes = (): readonly RouteRecordRaw[] => {
   return [

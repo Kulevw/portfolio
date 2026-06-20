@@ -1,0 +1,11 @@
+@use 'tokens';
+
+::selection {
+  background-color: var(--primary-color);
+}
+
+html {
+  color: var(--text-color);
+  background-color: var(--bg-color);
+}
+

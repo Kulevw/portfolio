@@ -1,11 +1,9 @@
-html {
-  position: relative;
+body, html, #app {
   min-height: 100%;
-}
-
-body {
   position: relative;
-  display: block;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
 }
 
 html,

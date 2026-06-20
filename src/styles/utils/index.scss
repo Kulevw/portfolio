@@ -1,0 +1,9 @@
+@use '@/styles/mixins' as mixins;
+
+.fake-hidden {
+  @include mixins.fake-hidden
+}
+
+.reset-button {
+  @include mixins.reset-button
+}
