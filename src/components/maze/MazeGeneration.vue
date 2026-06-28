@@ -8,11 +8,18 @@ import type { MazeFieldParams } from '@/components/maze/MazeField.types'
 function initMazeFieldParams(width: number, height: number): MazeFieldParams {
   const lineWeight = 1 * DPR
 
-  const cols = 20
+  const cellSize = 10
 
-  const cellSize = width / cols
+  const cols = Math.floor((width * DPR) / cellSize)
 
-  const rows = Math.floor(height / cellSize)
+  // const cols = 100
+
+  // const cellSize = (width * DPR) / cols
+
+  const rows = Math.floor((height * DPR) / cellSize)
+
+  // console.log('cols', cols)
+  // console.log('rows', rows)
 
   const graph = makeRectGraph(rows, cols)
 

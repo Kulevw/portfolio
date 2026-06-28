@@ -47,6 +47,8 @@ export const makeField = <
       })
     })
 
+    // console.log(sidesMap)
+
     return sidesMap
   }
 

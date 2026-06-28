@@ -28,9 +28,10 @@ export const cos = (rad: number) => {
 }
 
 export const keyOfLine = (line: Line): string => {
-  const sorted = sortLine(line)
+  const center = centerOfLine(line).map((n) => Math.floor(n)) as Point
 
-  return `${lengthOfLine(sorted)};${centerOfLine(sorted)};${angleOfLine(sorted) * RAD_TO_DEG}`
+  return `${keyOfPoint(center)}`
+  // return `${keyOfPoint(center)};${angleOfLine(line) * RAD_TO_DEG}`
 }
 
 export const sortLine = (ml: Line) => ml.sort((a, b) => a[0] - b[0] || a[1] - b[1])

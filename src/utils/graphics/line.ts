@@ -72,8 +72,6 @@ export const makeLineGraphics = (p1: Point, p2: Point, weight: number): LineGrap
 //     [ex2 + offsetX, ey2 + offsetY],
 //   ]
 
-//   // console.log(points)
-
 //   const draw = (ctx: CanvasRenderingContext2D, color: string) => {
 //     ctx.fillStyle = color
 
