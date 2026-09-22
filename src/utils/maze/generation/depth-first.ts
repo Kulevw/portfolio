@@ -14,8 +14,7 @@ export const mazeDepthFirstGeneration = async (
 
   const removeEdge = async (from: GraphNode, to: GraphNode) => {
     from.setWeightToEdge(to, 1)
-    await delay?.()
-    // await this.handlers?.onRemoveEdge?.(from, to)
+    // await delay?.()
   }
 
   let selected = from
@@ -29,11 +28,11 @@ export const mazeDepthFirstGeneration = async (
       const next = visited.pop()
 
       if (!next) {
-        await updateState([selected, GraphNodeState.Visited])
+        await updateState([selected, GraphNodeState.Ready])
         break
       }
 
-      await updateState([selected, GraphNodeState.Visited], [next, GraphNodeState.Selected])
+      await updateState([selected, GraphNodeState.Ready], [next, GraphNodeState.Selected])
 
       selected = next
       continue
@@ -41,7 +40,11 @@ export const mazeDepthFirstGeneration = async (
 
     visited.push(selected)
 
-    const next = getRandomItem(edges) as GraphNode
+    // const next = selected.randomNeighbor(notVisited, frequency?.())
+
+    // const next = getRandomItem(edges) as GraphNode
+
+    const next = getRandomItem(selected.edges.filter(notVisited)) as GraphNode
 
     await removeEdge(selected, next)
 

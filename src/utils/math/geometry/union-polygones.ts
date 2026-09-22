@@ -2,7 +2,7 @@ import type { Point } from '@/utils/math'
 import { toIntPoint, toPoint } from '@/utils/math/geometry/helpers'
 import { Clipper, PolyType, ClipType, PolyFillType, JS, type Paths } from 'clipper-lib'
 
-const SCALE = 1000
+import { SCALE } from './constants'
 
 export const unionPolygones = (polygones: Point[][]): Point[][] => {
   if (!polygones.length) {

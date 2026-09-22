@@ -79,17 +79,22 @@ const makeRectGraphNode = (graph: RectGraph, x: number, y: number) => {
     edges.push(...edgesMap.values())
   }
 
-  const node: RectGraphNode = {
-    ...makeGraphNode<RectGraphNode, RectGraph, RectGraphRelationPosition>(
-      graph,
-      keyOfPoint(x, y),
-      edges,
-      edgesMap,
-      relations,
-      relationsMap,
-    ),
+  const baseNode = makeGraphNode<RectGraphNode, RectGraph, RectGraphRelationPosition>(
+    graph,
+    keyOfPoint(x, y),
+    edges,
+    edgesMap,
+    relations,
+    relationsMap,
+  )
+
+  const node = {
+    ...baseNode,
     x,
     y,
+    get state() {
+      return baseNode.state
+    },
   }
 
   return [node, initEdges] as [RectGraphNode, () => void]

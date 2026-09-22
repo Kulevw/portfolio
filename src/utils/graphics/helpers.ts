@@ -8,19 +8,14 @@ export const randomColor = () =>
 export const syncCanvasTo = (
   fromCtx: CanvasRenderingContext2D,
   toCtx: CanvasRenderingContext2D,
-  scale = 1,
 ) => {
-  toCtx.drawImage(fromCtx.canvas, 0, 0, fromCtx.canvas.width * scale, fromCtx.canvas.height * scale)
+  toCtx.save()
+  toCtx.resetTransform()
+  toCtx.drawImage(fromCtx.canvas, 0, 0, toCtx.canvas.width, toCtx.canvas.height)
+  toCtx.restore()
 }
 
-export const fillPolygones = (
-  ctx: CanvasRenderingContext2D,
-  polygones: Point[][],
-  color: string,
-  fillRule: CanvasFillRule = 'nonzero',
-) => {
-  ctx.beginPath()
-
+export const eachPolygones = (ctx: CanvasRenderingContext2D, polygones: Point[][]) => {
   polygones.forEach(([start, ...path]: Point[]) => {
     if (!start) {
       return
@@ -28,11 +23,7 @@ export const fillPolygones = (
 
     ctx.moveTo(...start)
     path.forEach((point) => ctx.lineTo(...point))
-    ctx.closePath()
   })
-
-  ctx.fillStyle = color
-  ctx.fill(fillRule)
 }
 
 export const onFrame = (cb: () => void) => {

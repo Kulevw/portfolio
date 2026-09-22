@@ -1,43 +1,95 @@
-import type { GraphExtended, GraphNode, GraphNodeExtended } from '@/utils/graph/base'
-import { keyOfLine, type Line } from '@/utils/math'
-import { makeLineGraphics, type Drawable, type LineGraphics } from '@/utils/graphics'
+import type {
+  GraphExtended,
+  GraphNode,
+  GraphNodeExtended,
+  GraphNodeState,
+} from '@/utils/graph/base'
+import { keyOfPoint, type Line, type Point } from '@/utils/math'
+import {
+  makePolygoneLineGraphics,
+  makeRectGraphics,
+  type Graphics,
+  type PolygoneLineGraphics,
+  type RectGraphics,
+} from '@/utils/graphics'
+import { makeEventEmitter, type EventEmitter } from '@/utils/event-emitter'
 
-export type MazeFieldRawSide<N = GraphNodeExtended> = [Line, N, N | null]
+export type MazeFieldRawSide<N extends GraphNodeExtended = GraphNodeExtended> = [
+  string,
+  ...MazeFieldSide<N>,
+]
 
-export type MazeFieldSide<N = GraphNodeExtended> = [LineGraphics, N, N | null]
+export type MazeFieldSide<N extends GraphNodeExtended = GraphNodeExtended> = [
+  PolygoneLineGraphics,
+  N,
+  N | null,
+]
 
-export interface MazeField {
+export interface MazeFieldCell<N extends GraphNodeExtended = GraphNodeExtended> {
+  key: string
+  graphics: Graphics
+  node: N
+}
+
+type MazeEvents = {
+  'relation-updated'(from: MazeFieldCell, to: MazeFieldCell): void
+  'cell-state-updated'(
+    cell: MazeFieldCell,
+    newState: GraphNodeState,
+    oldState: GraphNodeState,
+  ): void
+  'cell-isolated'(cell: MazeFieldCell): void
+  isolated(): void
+}
+
+export interface MazeField extends EventEmitter<MazeEvents> {
   sides: MazeFieldSide[]
-  cells: Drawable[]
-  getCell(key: string): Drawable | null
-  getSide(from: GraphNode, to: GraphNode | null): LineGraphics | null
+  cells: MazeFieldCell[]
+  contacts: Graphics[]
+  getCell(key: string): MazeFieldCell | null
+  getSide(from: MazeFieldCell, to: MazeFieldCell | null): Graphics | null
+}
+
+export const makeFieldCell = <N extends GraphNodeExtended = GraphNodeExtended>(
+  node: N,
+  graphics: Graphics,
+): MazeFieldCell<N> => {
+  return {
+    node,
+    graphics,
+    get key() {
+      return node.key
+    },
+  }
 }
 
 export const makeField = <
-  C extends Drawable = Drawable,
   N extends GraphNodeExtended = GraphNodeExtended,
   G extends GraphExtended<N> = GraphExtended<N>,
+  C extends MazeFieldCell<N> = MazeFieldCell<N>,
 >(
   graph: G,
   sideWeight: number,
   makeCell: (node: N) => C,
-  makeCellSides: (cell: C, node: N) => MazeFieldRawSide<N>[],
+  makeSides: (cell: C) => [Line, string, N | null][],
 ): MazeField => {
-  const cellsMap = new Map(graph.nodes.map((node) => [node.key, makeCell(node)]))
+  const em = makeEventEmitter<MazeEvents>()
 
-  const cells = Array.from(cellsMap.values())
+  const cells = graph.nodes.map((node) => makeCell(node))
 
-  const keyOfPairNodes = (from: N, to: N | null) => [from.key, to?.key].sort().join('|')
+  const cellsMap = new Map(cells.map((cell) => [cell.key, cell]))
 
-  const makeSides = (): [MazeFieldSide<N>[], Map<string, MazeFieldSide<N>>] => {
+  const keyOfPairNodes = (from: string, to?: string) => [from, to].sort().join('|')
+
+  const calculateSides = (): [MazeFieldSide<N>[], Map<string, MazeFieldSide<N>>] => {
     const sidesMap = new Map<string, MazeFieldSide<N>>()
 
-    graph.nodes.forEach((node) => {
-      makeCellSides(cellsMap.get(node.key) as C, node).forEach(([line, from, to]) => {
-        const key = keyOfPairNodes(from, to)
+    cells.forEach((cell) => {
+      makeSides(cell).forEach(([line, pos, edge]) => {
+        const key = keyOfPairNodes(cell.node.key, edge?.key ?? pos)
 
-        if (!sidesMap.has(key) && to) {
-          sidesMap.set(key, [makeLineGraphics(...line, sideWeight), from, to])
+        if (!sidesMap.has(key)) {
+          sidesMap.set(key, [makePolygoneLineGraphics(...line, sideWeight), cell.node, edge])
         }
       })
     })
@@ -47,18 +99,50 @@ export const makeField = <
     return [sides, sidesMap]
   }
 
-  const [sides, sidesMap] = makeSides()
+  const calculateContacts = (): [Graphics[], Map<string, Graphics>] => {
+    const contactsMap = new Map<string, Graphics>()
+
+    sides.forEach(([side]) => {
+      side.line.forEach((p) => {
+        const key = keyOfPoint(...p)
+
+        if (!contactsMap.has(key)) {
+          contactsMap.set(key, makePolygoneLineGraphics(p, p, sideWeight))
+        }
+      })
+    })
+
+    const contacts = Array.from(contactsMap.values())
+
+    return [contacts, contactsMap]
+  }
+
+  const [sides, sidesMap] = calculateSides()
+
+  const [contacts] = calculateContacts()
 
   const getCell = (key: string) => cellsMap.get(key) ?? null
 
-  const getSide = (from: N, to: N | null) => sidesMap.get(keyOfPairNodes(from, to))?.[0] ?? null
+  const getSide = (from: N, to: N | null) =>
+    sidesMap.get(keyOfPairNodes(from.key, to?.key))?.[0] ?? null
 
   const field: MazeField = {
+    ...em,
     sides,
     cells,
+    contacts,
     getCell,
     getSide,
   }
+
+  graph.on('isolated', () => em.emit('isolated'))
+  graph.on('node-isolated', (node) => em.emit('cell-isolated', getCell(node.key) as C))
+  graph.on('node-state-updated', (node, ...others) =>
+    em.emit('cell-state-updated', getCell(node.key) as C, ...others),
+  )
+  graph.on('relation-updated', (from, to) =>
+    em.emit('relation-updated', getCell(from.key) as C, getCell(to.key) as C),
+  )
 
   return field
 }

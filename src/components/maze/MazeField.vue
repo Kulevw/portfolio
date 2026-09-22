@@ -1,25 +1,27 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
-import { DPR } from '@/constants'
 import { type MazeField } from '@/utils/maze/base'
 
-import { angleOfLine, type Point } from '@/utils/math'
+import { angleOfLine } from '@/utils/math'
 
 import { useIsDarkTheme } from '@/composition/use-theme'
 import { unionPolygones } from '@/utils/math/geometry/union-polygones'
-import { unionLines } from '@/utils/math/geometry/union-lines'
 import { RECT_GRAPH_TYPE, type RectGraph } from '@/utils/graph/rect-graph'
 import type {
   MazeFieldProps,
   MazeFieldContext,
   MazeFieldParams,
   MazeFieldPalitra,
+  MazeFieldCache,
 } from '@/components/maze/MazeField.types'
 import { getRandomItem, groupBy } from '@/utils/array'
 import { useRunningState } from '@/composition/use-running-state'
-import { fillPolygones, onFrame, syncCanvasTo } from '@/utils/graphics'
+import { eachPolygones, onFrame, syncCanvasTo } from '@/utils/graphics'
 import { makeRectField } from '@/utils/maze/rect-maze'
+import { mazeDepthFirstGeneration } from '@/utils/maze/generation/depth-first'
+import { wait } from '@/utils/async'
 import { GraphNodeState } from '@/utils/graph'
+import { differencePolygones } from '@/utils/math/geometry/differents-polygones'
 
 const props = defineProps<MazeFieldProps>()
 
@@ -27,27 +29,33 @@ const isDarkTheme = useIsDarkTheme()
 
 const [isInitProcessing, withInitProcessing] = useRunningState()
 
-const SCALE = DPR
-const SCALE_REVERSE = 1 / SCALE
-const pxDPR = `${Math.round(SCALE)}px`
+const SCALE = 1
 
 const refRootContainer = ref<HTMLElement>()
 const refCellsCanvas = ref<HTMLCanvasElement>()
 const refSidesCanvas = ref<HTMLCanvasElement>()
+const refContactsCanvas = ref<HTMLCanvasElement>()
 
-const cache = {
-  unionSides: null as Point[][] | null,
-  unionCells: null as Point[][] | null,
+const cache: MazeFieldCache = {
+  unionSides: null,
+  unionCells: {
+    [GraphNodeState.Default]: null,
+    [GraphNodeState.Ready]: null,
+    [GraphNodeState.Selected]: null,
+    [GraphNodeState.Visited]: null,
+    isolated: null,
+  },
 }
 
 const MazePalitra: MazeFieldPalitra = {
   Sides: {
-    Default: '#202020',
+    Default: 'black',
   },
   Cells: {
-    Default: '#dadada',
+    Default: 'white',
     Selected: 'cyan',
     Visited: 'yellow',
+    Ready: 'white',
   },
 }
 
@@ -62,14 +70,19 @@ onMounted(init)
 function makeField({ graph, cellSize, lineWeight }: MazeFieldParams): MazeField | null {
   switch (graph.type) {
     case RECT_GRAPH_TYPE:
-      return makeRectField(graph as RectGraph, lineWeight * 2, cellSize, cellSize)
+      return makeRectField(graph as RectGraph, lineWeight, cellSize, cellSize)
     default:
       return null
   }
 }
 
 function makeContext(): MazeFieldContext | null {
-  if (!refCellsCanvas.value || !refSidesCanvas.value || !refRootContainer.value) {
+  if (
+    !refRootContainer.value ||
+    !refCellsCanvas.value ||
+    !refSidesCanvas.value ||
+    !refContactsCanvas.value
+  ) {
     return null
   }
 
@@ -88,8 +101,14 @@ function makeContext(): MazeFieldContext | null {
     field,
     params,
     rootElement: refRootContainer.value,
-    cellsCtx: getPreparedCanvasCtx(refCellsCanvas.value, refRootContainer.value, SCALE),
-    sidesCtx: getPreparedCanvasCtx(refSidesCanvas.value, refRootContainer.value, SCALE),
+    cellsCtx: getPreparedCanvasCtx(refCellsCanvas.value, refRootContainer.value, params, SCALE),
+    sidesCtx: getPreparedCanvasCtx(refSidesCanvas.value, refRootContainer.value, params, SCALE),
+    contactsCtx: getPreparedCanvasCtx(
+      refContactsCanvas.value,
+      refRootContainer.value,
+      params,
+      SCALE,
+    ),
   }
 }
 
@@ -100,63 +119,42 @@ async function init(): Promise<void> {
     return
   }
 
-  const [virtualCellsCtx, virtualSidesCtx] = [
-    getPreparedCanvasCtx(document.createElement('canvas'), ctx.rootElement, SCALE),
-    getPreparedCanvasCtx(document.createElement('canvas'), ctx.rootElement, SCALE),
-  ] as Pair<CanvasRenderingContext2D>
+  const [virtualCellsCtx, virtualSidesCtx, virtualContactsCts] = [
+    getPreparedCanvasCtx(document.createElement('canvas'), ctx.rootElement, ctx.params, SCALE),
+    getPreparedCanvasCtx(document.createElement('canvas'), ctx.rootElement, ctx.params, SCALE),
+    getPreparedCanvasCtx(document.createElement('canvas'), ctx.rootElement, ctx.params, SCALE),
+  ] as [CanvasRenderingContext2D, CanvasRenderingContext2D, CanvasRenderingContext2D]
 
-  ctx.params.graph.nodes.forEach((node) => {
-    const edge = getRandomItem(node.edges)
+  ctx.field.on('cell-state-updated', (cell, newState, oldState) => {
+    const vertices = cell.graphics.vertices
 
-    node.setState(GraphNodeState.Selected)
-    edge?.setState(GraphNodeState.Selected)
+    cache.unionCells[oldState] = differencePolygones(cache.unionCells[oldState] ?? [vertices], [
+      vertices,
+    ])
+    cache.unionCells[newState] = unionPolygones(
+      (cache.unionCells[newState] ?? []).concat([vertices]),
+    )
 
-    edge?.setWeightToEdge(node, 1)
-  })
-
-  ctx.params.graph.on('node-state-updated', (node) => {
     onFrame(() => {
-      ctx.field.getCell(node.key)?.draw(ctx.cellsCtx, MazePalitra.Cells[node.state])
+      cell.graphics.draw(ctx.cellsCtx, MazePalitra.Cells[newState])
     })
   })
 
-  ctx.params.graph.on('relation-updated', (from, to) => {
-    console.log('relation-updated')
-
-    const isAvailable = to?.isAvailableEdge(from)
-
+  ctx.field.on('relation-updated', (from, to) => {
     const side = ctx.field.getSide(from, to)
 
-    onFrame(() => {
-      if (isAvailable) {
-        side?.clear(ctx.sidesCtx)
-      } else {
-        side?.draw(ctx.sidesCtx, MazePalitra.Sides.Default)
-      }
-    })
+    const isAvailable = to.node.isAvailableEdge(from.node)
+
+    const draw = isAvailable
+      ? () => side?.clear(ctx.sidesCtx)
+      : () => side?.draw(ctx.sidesCtx, MazePalitra.Sides.Default)
+
+    cache.unionSides = isAvailable
+      ? differencePolygones(cache.unionSides ?? [], [side?.vertices ?? []])
+      : unionPolygones((cache.unionSides ?? []).concat([side?.vertices ?? []]))
+
+    onFrame(draw)
   })
-
-  const pupa = (count = 0) => {
-    if (count >= 100) {
-      return
-    }
-
-    setTimeout(() => {
-      const node = getRandomItem(ctx.params.graph.nodes)
-
-      if (node) {
-        const edge = getRandomItem(node.edges)
-
-        if (edge) {
-          node.setWeightToEdge(edge, node.isAvailableEdge(edge) ? 0 : 1)
-        }
-      }
-
-      pupa(count + 1)
-    }, 10)
-  }
-
-  pupa()
 
   onThemeChangeHandler = () => {
     updateMazePalitra(ctx.rootElement)
@@ -170,34 +168,65 @@ async function init(): Promise<void> {
 
   await withInitProcessing(
     new Promise<void>((resolve) => {
-      drawField(ctx, [virtualCellsCtx, virtualSidesCtx])
+      drawField(ctx, [virtualCellsCtx, virtualSidesCtx, virtualContactsCts])
 
       onFrame(() => {
-        syncCanvasTo(virtualCellsCtx, ctx.cellsCtx, SCALE_REVERSE)
-        syncCanvasTo(virtualSidesCtx, ctx.sidesCtx, SCALE_REVERSE)
-
+        syncCanvasTo(virtualCellsCtx, ctx.cellsCtx)
+        syncCanvasTo(virtualSidesCtx, ctx.sidesCtx)
+        syncCanvasTo(virtualContactsCts, ctx.contactsCtx)
         resolve()
       })
     }),
   )
+
+  const start = getRandomItem(ctx.params.graph.nodes)
+
+  if (start) {
+    mazeDepthFirstGeneration(start, () => wait(0))
+  }
+}
+
+function drawCells(mazeCtx: MazeFieldContext, virtualCtx?: CanvasRenderingContext2D) {
+  const cellsCtx = virtualCtx ?? mazeCtx.cellsCtx
+
+  Object.values(GraphNodeState).forEach((state) => {
+    cellsCtx.beginPath()
+    eachPolygones(cellsCtx, getCellsCache(state, mazeCtx))
+    cellsCtx.closePath()
+    cellsCtx.fillStyle = MazePalitra.Cells[state]
+    cellsCtx.fill('evenodd')
+  })
+}
+
+function drawSides(mazeCtx: MazeFieldContext, virtualCtx?: CanvasRenderingContext2D) {
+  const sidesCtx = virtualCtx ?? mazeCtx.sidesCtx
+
+  sidesCtx.beginPath()
+  eachPolygones(sidesCtx, getSidesCache(mazeCtx))
+  sidesCtx.closePath()
+  sidesCtx.fillStyle = MazePalitra.Sides.Default
+  sidesCtx.fill()
+}
+
+function drawContacts(mazeCtx: MazeFieldContext, virtualCtx?: CanvasRenderingContext2D) {
+  const contactsCtx = virtualCtx ?? mazeCtx.contactsCtx
+
+  mazeCtx.field.contacts.forEach((g) => g.draw(contactsCtx, MazePalitra.Sides.Default))
 }
 
 function drawField(
-  ctx: MazeFieldContext,
-  [virtualCellsCtx, virtualSidesCtx]: CanvasRenderingContext2D[] = [],
+  mazeCtx: MazeFieldContext,
+  [virtualCellsCtx, virtualSidesCtx, virtualContactsCtx]: CanvasRenderingContext2D[] = [],
 ) {
-  fillPolygones(
-    virtualCellsCtx ?? ctx.cellsCtx,
-    getCellsCache(ctx),
-    MazePalitra.Cells.Default,
-    'evenodd',
-  )
-  fillPolygones(virtualSidesCtx ?? ctx.sidesCtx, getSidesCache(ctx), MazePalitra.Sides.Default)
+  drawCells(mazeCtx, virtualCellsCtx)
+  drawSides(mazeCtx, virtualSidesCtx)
+  drawContacts(mazeCtx, virtualContactsCtx)
 }
 
 function getPreparedCanvasCtx(
   canvas: HTMLCanvasElement,
   container: HTMLElement,
+  params: MazeFieldParams,
   scale = 1,
 ): CanvasRenderingContext2D {
   const { width, height } = container.getBoundingClientRect()
@@ -207,7 +236,14 @@ function getPreparedCanvasCtx(
 
   const ctx = canvas.getContext('2d') as CanvasRenderingContext2D
 
-  ctx.scale(scale, scale)
+  ctx.imageSmoothingEnabled = false
+  ctx.imageSmoothingQuality = 'high'
+
+  // ctx.scale(scale, scale)
+  ctx.translate(
+    Math.round((width - params.actualWidth) / 2),
+    Math.round((height - params.actualHeight) / 2),
+  )
 
   return ctx
 }
@@ -217,31 +253,34 @@ function updateMazePalitra(rootContainer: HTMLElement) {
 
   MazePalitra.Sides.Default = style.getPropertyValue('--side-color')
 
-  MazePalitra.Cells.Default = style.getPropertyValue('--cell-color')
+  MazePalitra.Cells.Default = style.getPropertyValue('--cell-default-color')
+  MazePalitra.Cells.Ready = style.getPropertyValue('--cell-ready-color')
+  MazePalitra.Cells.Selected = style.getPropertyValue('--cell-selected-color')
+  MazePalitra.Cells.Visited = style.getPropertyValue('--cell-visited-color')
 }
 
-function getCellsCache({ field }: MazeFieldContext) {
-  if (!cache.unionCells) {
-    const polygones = field.cells.map((cell) => cell.vertices)
+function getCellsCache(state: GraphNodeState, { field }: MazeFieldContext) {
+  if (!cache.unionCells[state]) {
+    const polygones = field.cells
+      .filter((cell) => cell.node.state === state)
+      .map((cell) => cell.graphics.vertices)
 
-    cache.unionCells = unionPolygones(polygones)
+    cache.unionCells[state] = unionPolygones(polygones)
   }
 
-  return cache.unionCells
+  return cache.unionCells[state]
 }
 
-function getSidesCache({ field, params }: MazeFieldContext) {
+function getSidesCache({ field }: MazeFieldContext) {
   if (!cache.unionSides) {
-    const lines = field.sides
+    const graphicsSides = field.sides
       .filter(([, from, to]) => !to?.isAvailableEdge(from))
-      .map(([line]) => line.vertices)
+      .map(([g]) => g)
 
-    console.log(lines.length, field.sides.length)
-
-    const groupedByAngle = groupBy(lines, (line) => angleOfLine(line))
+    const groupedByAngle = groupBy(graphicsSides, (g) => angleOfLine(g.line))
 
     const result = Object.values(groupedByAngle).flatMap((group) =>
-      unionLines(group, params.lineWeight),
+      unionPolygones(group.map((g) => g.vertices)),
     )
 
     cache.unionSides = result
@@ -255,19 +294,21 @@ function getSidesCache({ field, params }: MazeFieldContext) {
   <div ref="refRootContainer" class="maze-field">
     <canvas ref="refCellsCanvas" class="maze-field__canvas" width="100%" height="100%" />
     <canvas ref="refSidesCanvas" class="maze-field__canvas" width="100%" height="100%" />
+    <canvas ref="refContactsCanvas" class="maze-field__canvas" width="100%" height="100%" />
     <div v-if="isInitProcessing" class="maze-field__loader">Loading...</div>
   </div>
 </template>
 
 <style lang="scss" scoped>
 .maze-field {
-  --cell-color: var(--bg-color);
+  --cell-default-color: var(--bg-color);
+  --cell-ready-color: var(--bg-color);
+  --cell-selected-color: var(--selected-color);
+  --cell-visited-color: var(--visited-color);
   --side-color: var(--text-color);
 
   position: relative;
-  height: 600px;
-  outline: v-bind(pxDPR) solid var(--side-color);
-  background-color: var(--primary-color);
+  padding-top: calc(9 / 16 * 100%);
 
   &__canvas {
     position: absolute;
@@ -275,6 +316,7 @@ function getSidesCache({ field, params }: MazeFieldContext) {
     inset: 0;
     width: 100%;
     height: 100%;
+    image-rendering: pixelated;
   }
 
   &__loader {

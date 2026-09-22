@@ -1,8 +1,25 @@
-import type { RectGraph, RectGraphNode } from '@/utils/graph'
-import { makeRectGraphics, type RectGraphics } from '@/utils/graphics'
-import { makeField, type MazeField, type MazeFieldRawSide } from '@/utils/maze/base'
+import type { RectGraph, RectGraphNode, RectGraphRelationPosition } from '@/utils/graph'
+import { makePolygoneLineGraphics, makeRectGraphics, type RectGraphics } from '@/utils/graphics'
+import { type Line } from '@/utils/math'
+import {
+  makeField,
+  type MazeField,
+  type MazeFieldRawSide,
+  type MazeFieldCell,
+  makeFieldCell,
+} from '@/utils/maze/base'
 
 export type RectMazeField = MazeField
+export type RectMazeFieldCell = MazeFieldCell<RectGraphNode>
+
+export const makeRectFieldCell = (
+  node: RectGraphNode,
+  graphics: RectGraphics,
+): RectMazeFieldCell => {
+  return {
+    ...makeFieldCell(node, graphics),
+  }
+}
 
 export const makeRectField = (
   graph: RectGraph,
@@ -11,22 +28,26 @@ export const makeRectField = (
   cellHeight: number = cellWidth,
 ): RectMazeField => {
   const makeCell = (node: RectGraphNode) =>
-    makeRectGraphics(node.x * cellWidth, node.y * cellHeight, cellWidth, cellHeight)
+    makeRectFieldCell(
+      node,
+      makeRectGraphics(node.x * cellWidth, node.y * cellHeight, cellWidth, cellHeight),
+    )
 
-  const makeSides = (
-    cell: RectGraphics,
-    node: RectGraphNode,
-  ): MazeFieldRawSide<RectGraphNode>[] => {
-    const [luv, ruv, rdv, ldv] = cell.vertices
+  const makeSides = ({
+    node,
+    graphics,
+  }: RectMazeFieldCell): [Line, RectGraphRelationPosition, RectGraphNode][] => {
+    const [luv, ruv, rdv, ldv] = graphics.vertices
 
-    const pointsToEdgePairs: MazeFieldRawSide<RectGraphNode>[] = [
-      [[luv, ruv], node, node.getEdgeByPosition('top')],
-      [[ruv, rdv], node, node.getEdgeByPosition('right')],
-      [[rdv, ldv], node, node.getEdgeByPosition('bottom')],
-      [[ldv, luv], node, node.getEdgeByPosition('left')],
-    ]
+    const lineToPositionEdge = [
+      [[luv, ruv], 'top', node.getEdgeByPosition('top')],
+      [[ruv, rdv], 'right', node.getEdgeByPosition('right')],
+      [[rdv, ldv], 'bottom', node.getEdgeByPosition('bottom')],
+      [[ldv, luv], 'left', node.getEdgeByPosition('left')],
+    ] as [Line, RectGraphRelationPosition, RectGraphNode][]
+    // .filter(([, edge]) => !!edge)
 
-    return pointsToEdgePairs
+    return lineToPositionEdge
   }
 
   const field = makeField(graph, sideWeight, makeCell, makeSides)

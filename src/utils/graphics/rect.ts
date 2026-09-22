@@ -1,7 +1,8 @@
-import type { Drawable } from '@/utils/graphics/base'
+import type { Graphics } from '@/utils/graphics/base'
+import { eachPolygones } from '@/utils/graphics/helpers'
 import type { Line, Point } from '@/utils/math'
 
-export type RectGraphics = Drawable<[...Line, ...Line]>
+export type RectGraphics = Graphics<[...Line, ...Line]>
 
 export const makeRectGraphics = (
   x: number,
@@ -18,12 +19,10 @@ export const makeRectGraphics = (
 
   const draw = (ctx: CanvasRenderingContext2D, color: string) => {
     ctx.fillStyle = color
-    ctx.strokeStyle = color
-    ctx.lineWidth = 1
     ctx.beginPath()
-    ctx.rect(x, y, width, height)
+    eachPolygones(ctx, [points])
+    ctx.closePath()
     ctx.fill()
-    ctx.stroke()
   }
 
   const clear = (ctx: CanvasRenderingContext2D) => {

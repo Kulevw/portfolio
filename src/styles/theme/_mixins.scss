@@ -6,6 +6,9 @@
 
   --bg-color: var(--light-800);
   --bg-reverse-color: var(--neutral-800);
+
+  --selected-color: var(--cyan-500);
+  --visited-color: var(--yellow-500);
 }
 
 @mixin dark-palitra() {
@@ -16,4 +19,7 @@
 
   --bg-color: var(--neutral-800);
   --bg-reverse-color: var(--light-800);
+
+  --selected-color: var(--cyan-800);
+  --visited-color: var(--yellow-800);
 }

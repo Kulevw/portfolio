@@ -5,13 +5,14 @@ export enum GraphNodeState {
   Default = 'Default',
   Visited = 'Visited',
   Selected = 'Selected',
+  Ready = 'Ready',
 }
 
 export interface GraphNode {
   key: string
   graph: Graph
   edges: GraphNode[]
-  state: GraphNodeState
+  readonly state: GraphNodeState
   setState(state: GraphNodeState): void
   isAvailableEdge(edge: GraphNode): boolean
   setWeightToEdge(edge: GraphNode, weight: number): void
@@ -20,7 +21,7 @@ export interface GraphNode {
 
 type GraphEvents = {
   'relation-updated'(from: GraphNode, to: GraphNode): void
-  'node-state-updated'(node: GraphNode): void
+  'node-state-updated'(node: GraphNode, newState: GraphNodeState, oldState: GraphNodeState): void
   'node-isolated'(node: GraphNode): void
   isolated(): void
 }
@@ -101,16 +102,20 @@ export const makeGraphNode = <
   relations: R[],
   relationsMap: Map<string, R>,
 ): GraphNodeExtended<G, P, R, N> => {
+  let state = GraphNodeState.Default
+
   const getEdgeByPosition = (position: P) => edgesMap.get(position) ?? null
 
   const isAvailableEdge = (edge: N) => (relationsMap.get(edge.key)?.weight ?? 0) > 0
 
   const getRelation = (key: string) => relationsMap.get(key) ?? null
 
-  const setState = (state: GraphNodeState) => {
-    node.state = state
+  const setState = (newState: GraphNodeState) => {
+    const oldState = state
 
-    graph.emit('node-state-updated', node)
+    state = newState
+
+    graph.emit('node-state-updated', node, newState, oldState)
   }
 
   const setWeightToEdge = (edge: N, weight: number) => {
@@ -137,7 +142,9 @@ export const makeGraphNode = <
     getRelation,
     setWeightToEdge,
     isolate,
-    state: GraphNodeState.Default,
+    get state() {
+      return state
+    },
   }
 
   return node

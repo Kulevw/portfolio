@@ -3,11 +3,11 @@ export interface Env {
   readonly IS_CLIENT: boolean
 }
 
-const mapEnv = (rawEnv: ImportMetaEnv): Env => {
+const mapRawEnv = (rawEnv: ImportMetaEnv): Env => {
   return {
     REPO_NAME: rawEnv.VITE_REPO_NAME,
     IS_CLIENT: !rawEnv.SSR,
   }
 }
 
-export const env = mapEnv(import.meta.env)
+export const env = mapRawEnv(import.meta.env)
